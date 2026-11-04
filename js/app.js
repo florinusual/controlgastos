@@ -258,7 +258,11 @@ function tarjetaTC({ card, r }) {
 /* ---------- Quincenas ---------- */
 function vQuincenas() {
   const P = ui.payday;
-  const lista = asignacionesDe(cards(), D.periodos, P, todayISO(), movsList());
+  // Solo las tarjetas que de verdad requieren apartar algo en esta quincena:
+  // ya tiene un monto escrito, o el corte sigue por pagar con deuda y un pago distinto de $0.
+  const requiere = ({ r, q }) => (q.monto > 0) ||
+    (!r.pagado && r.estado.tipo !== 'saldada' && r.deudaActual > 0 && (!r.capturado || r.pagoMes > 0));
+  const lista = asignacionesDe(cards(), D.periodos, P, todayISO(), movsList()).filter(requiere);
   const total = round2(lista.reduce((s, a) => s + (a.q.monto || 0), 0));
   const hecho = round2(lista.reduce((s, a) => s + (a.q.separada ? a.q.monto || 0 : 0), 0));
   const pct = total ? Math.round((hecho / total) * 100) : 0;
@@ -271,7 +275,7 @@ function vQuincenas() {
   h += `<div class="qtotal"><span class="label">Separar de esta quincena para tarjetas</span><b>${money(total)}</b>
     <div class="row spread meta" style="color:#B9C4BC;margin-top:4px"><span>Separado ${money(hecho)}</span><span>Falta ${money(round2(total - hecho))}</span></div>
     <div class="bar"><i style="width:${pct}%"></i></div></div>`;
-  if (!lista.length) return h + '<div class="empty"><b>Nada que separar</b>Ninguna tarjeta tiene pago asignado a esta quincena.</div>';
+  if (!lista.length) return h + '<div class="empty"><b>Nada que separar</b>Ninguna tarjeta requiere apartar dinero en esta quincena.</div>';
   h += '<div class="card checks" style="border-top:1px solid var(--line);padding-top:6px">' + lista.map(({ card, r, q }) => {
     const id = `qq-${card.id}-${r.mes}-${q.n}`;
     return `<label class="ck" for="${id}"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''}>
