@@ -94,7 +94,7 @@ function render() {
 
   v.innerHTML = (store.mode === 'local' ? demoNote() : '') + (ui.error ? `<div class="note err">${esc(ui.error)}</div>` : '') +
     ({ tarjetas: vTarjetas, quincenas: vQuincenas, movimientos: vMovimientos, super: vSuper })[ui.tab]();
-  if (ui.sheet) renderSheet();
+  if (ui.sheet && !$('#sheet .panel')) renderSheet();
   if (foco) document.getElementById(foco)?.focus({ preventScroll: true });
 }
 
@@ -166,9 +166,10 @@ function vTarjetas() {
 function attrs(card, r) { return `data-card="${esc(card.id)}" data-mes="${r.mes}"`; }
 function ckQ(card, r, q, pre) {
   const id = `${pre}-${card.id}-${r.mes}-${q.n}`;
-  return `<label class="ck" for="${id}"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''} ${q.monto === null ? 'disabled' : ''}>
-    <span class="box"></span><span class="t">${q.n}ª quincena · ${esc(fechaCorta(q.fecha))}${q.separada && q.fechaSep ? `<small>Separado el ${esc(fechaCorta(q.fechaSep))}</small>` : ''}</span>
-    <span class="amt">${q.monto === null ? '—' : money(q.monto)}</span></label>`;
+  const mid = `qm-${card.id}-${r.mes}-${q.n}`;
+  return `<div class="ck"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''}>
+    <label class="box" for="${id}"></label><label class="t" for="${id}">${q.n}ª quincena · ${esc(fechaCorta(q.fecha))}${q.separada && q.fechaSep ? `<small>Separado el ${esc(fechaCorta(q.fechaSep))}</small>` : q.editado ? '<small>Monto ajustado por ti</small>' : ''}</label>
+    <input class="qm" id="${mid}" inputmode="decimal" data-ch="qMonto" data-n="${q.n}" ${attrs(card, r)} value="${q.editado ? q.monto : ''}" placeholder="${q.monto === null ? 'Monto' : q.monto.toFixed(2)}" aria-label="Monto a separar en la ${q.n}ª quincena"></div>`;
 }
 
 function tarjetaTC({ card, r }) {
@@ -183,11 +184,11 @@ function tarjetaTC({ card, r }) {
     </div>
     <div class="cells">
       <div class="cell"><span class="label">Deuda actual</span><span class="v">${money(r.deudaActual)}</span></div>
-      <label class="cell" for="aj-${card.id}-${r.mes}"><span class="label">Intereses / cargos</span>
-        <input id="aj-${card.id}-${r.mes}" type="number" step="0.01" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00"></label>
+      <label class="cell" for="aj-${card.id}-${r.mes}"><span class="label">Intereses / cargos</span><small class="meta">Se suma a la deuda de este mes</small>
+        <input id="aj-${card.id}-${r.mes}" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00"></label>
       <label class="cell" for="pm-${card.id}-${r.mes}"><span class="label">Pago del corte</span>
-        <input id="pm-${card.id}-${r.mes}" type="number" step="0.01" min="0" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura"></label>
-      <div class="cell"><span class="label">Por quincena</span><span class="v">${money(r.quincenas[0]?.monto ?? null)}</span></div>
+        <input id="pm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura"></label>
+      <div class="cell"><span class="label">Por quincena</span><span class="v">${r.quincenas.map((q) => money(q.monto)).join(' / ')}</span></div>
     </div>
     ${r.aviso ? `<div class="hint">${esc(r.aviso)}</div>` : ''}
     <div class="checks">
@@ -199,7 +200,7 @@ function tarjetaTC({ card, r }) {
       <label class="field" for="fr-${card.id}-${r.mes}"><span class="label">Fecha real de pago</span>
         <input id="fr-${card.id}-${r.mes}" type="date" data-ch="fechaReal" ${a} value="${esc(r.fechaReal)}"></label>
       <label class="field" for="mp-${card.id}-${r.mes}"><span class="label">Monto pagado</span>
-        <input id="mp-${card.id}-${r.mes}" type="number" step="0.01" min="0" inputmode="decimal" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}"></label>
+        <input id="mp-${card.id}-${r.mes}" inputmode="decimal" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}"></label>
     </div>
     <div class="cells" style="grid-template-columns:minmax(0,1fr)"><div class="cell final"><span class="label">Deuda final</span><span class="v">${money(r.deudaFinal)}</span></div></div>
     <div class="tc-foot"><span class="meta">${compras.n ? `Compras anotadas en Movimientos este corte: ${money(compras.total)} (${compras.n})` : 'Sin compras anotadas con esta tarjeta este corte'}</span>
@@ -222,13 +223,13 @@ function tablaTC(filas) {
     ${filas.map(({ card, r }) => { const a = attrs(card, r); return `<tr>
       <th class="sticky"><button class="link" style="padding:0;text-align:left" data-act="editCard" data-card="${esc(card.id)}">${esc(card.nombre)}</button></th>
       <td class="meta">${esc(fechaCorta(r.corte))}<br>→ ${esc(fechaCorta(r.limite))}</td>
-      <td class="r"><input id="taj-${card.id}-${r.mes}" type="number" step="0.01" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00" aria-label="Intereses de ${esc(card.nombre)}"></td>
+      <td class="r"><input id="taj-${card.id}-${r.mes}" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00" aria-label="Intereses de ${esc(card.nombre)}"></td>
       <td class="r num">${money(r.deudaActual)}</td>
-      <td class="r"><input id="tpm-${card.id}-${r.mes}" type="number" step="0.01" min="0" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura" aria-label="Pago del corte de ${esc(card.nombre)}"></td>
+      <td class="r"><input id="tpm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura" aria-label="Pago del corte de ${esc(card.nombre)}"></td>
       ${celdaQ(card, r, 0)}${celdaQ(card, r, 1)}
       <td><label class="ck" for="tpg-${card.id}-${r.mes}"><input type="checkbox" id="tpg-${card.id}-${r.mes}" data-ch="pagado" ${a} ${r.pagado ? 'checked' : ''}><span class="box"></span></label></td>
       <td><input id="tfr-${card.id}-${r.mes}" type="date" data-ch="fechaReal" ${a} value="${esc(r.fechaReal)}" aria-label="Fecha real de pago de ${esc(card.nombre)}"></td>
-      <td class="r"><input id="tmp-${card.id}-${r.mes}" type="number" step="0.01" min="0" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}" aria-label="Monto pagado de ${esc(card.nombre)}"></td>
+      <td class="r"><input id="tmp-${card.id}-${r.mes}" inputmode="decimal" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}" aria-label="Monto pagado de ${esc(card.nombre)}"></td>
       <td class="r num"><b>${money(r.deudaFinal)}</b></td><td>${estadoTag(r.estado)}</td></tr>`; }).join('')}
     </tbody><tfoot><tr><th class="sticky">Total</th><td></td><td></td><td class="r num">${money(round2(tot.a))}</td><td class="r num">${money(round2(tot.p))}</td>
       <td></td><td></td><td></td><td></td><td class="r num">${money(round2(tot.d))}</td><td class="r num">${money(round2(tot.f))}</td><td></td></tr></tfoot></table></div>`;
@@ -350,7 +351,7 @@ function sheetCard() {
     <label class="field" for="f-nombre"><span class="label">Nombre</span><input id="f-nombre" data-cf="nombre" value="${esc(c.nombre)}" placeholder="Ej. BBVA Oro" maxlength="40"></label>
     <div class="grid2">
       <label class="field" for="f-term"><span class="label">Últimos 4 dígitos</span><input id="f-term" data-cf="terminacion" inputmode="numeric" maxlength="4" value="${esc(c.terminacion)}" placeholder="Opcional"></label>
-      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label>
+      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label>
       <label class="field" for="f-corte"><span class="label">Día de corte</span><input id="f-corte" data-cf="diaCorte" type="number" min="1" max="31" value="${esc(c.diaCorte)}"></label>
       <label class="field" for="f-pago"><span class="label">Día límite de pago</span><input id="f-pago" data-cf="diaPago" type="number" min="1" max="31" value="${esc(c.diaPago)}"></label></div>
     <label class="field" for="f-mes"><span class="label">Mes del primer corte que registras</span><input id="f-mes" data-cf="mesInicial" type="month" value="${esc(c.mesInicial)}"></label>
@@ -436,7 +437,14 @@ document.addEventListener('change', async (ev) => {
   if (k === 'q') patch = { [`q${el.dataset.n}`]: el.checked, [`q${el.dataset.n}Fecha`]: el.checked ? todayISO() : null };
   else if (k === 'pagado') { patch = { pagado: el.checked }; if (el.checked && !p.fechaReal) patch.fechaReal = todayISO(); }
   else if (k === 'fechaReal') { patch = { fechaReal: el.value || null }; if (el.value) patch.pagado = true; }
-  else patch = { [k]: hasNum(el.value) ? round2(Number(el.value)) : null };
+  else if (k === 'qMonto') {
+    const v = parseMonto(el.value);
+    patch = { [`q${el.dataset.n}Monto`]: Number.isFinite(v) && v >= 0 ? round2(v) : null };
+  } else {
+    const v = parseMonto(el.value);
+    if (el.value.trim() && !Number.isFinite(v)) { toast('Escribe solo números, por ejemplo 1250.50'); return; }
+    patch = { [k]: Number.isFinite(v) ? round2(v) : null };
+  }
   await put('periodos', `${card}_${mes}`, { cardId: card, mes, ...patch }).catch(() => {});
   if (patch.pagado && !p.pagado) {
     const c = D.cards[card];
@@ -478,13 +486,21 @@ async function guardarCard() {
   const c = ui.cardEdit, msg = $('#cardMsg');
   const card = {
     nombre: String(c.nombre).trim(), terminacion: String(c.terminacion || '').trim(), diaCorte: Number(c.diaCorte), diaPago: Number(c.diaPago),
-    deudaInicial: round2(Number(c.deudaInicial || 0)), mesInicial: c.mesInicial, color: c.color || COLORES[0],
+    deudaInicial: round2(Number.isFinite(parseMonto(c.deudaInicial)) ? parseMonto(c.deudaInicial) : 0), mesInicial: c.mesInicial, color: c.color || COLORES[0],
   };
   if (!card.nombre) { msg.textContent = 'Escribe el nombre de la tarjeta.'; return; }
   if (!(card.diaCorte >= 1 && card.diaCorte <= 31 && card.diaPago >= 1 && card.diaPago <= 31)) { msg.textContent = 'Los días de corte y de pago van del 1 al 31.'; return; }
   if (card.diaCorte === card.diaPago) { msg.textContent = 'El día de pago debe ser distinto al día de corte.'; return; }
   if (!/^\d{4}-\d{2}$/.test(card.mesInicial || '')) { msg.textContent = 'Elige el mes del primer corte que vas a registrar.'; return; }
-  try { await put('cards', c.id || null, card); cerrarSheet(); toast('Tarjeta guardada'); } catch { /* toast */ }
+  if (ui.guardando) return;
+  ui.guardando = true;
+  const btn = $('#cardForm button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  // El id se fija al abrir el formulario: si se toca Guardar dos veces, se actualiza la misma tarjeta.
+  const pendiente = put('cards', c.id || c.nuevoId, card).catch(() => null);
+  cerrarSheet(); toast('Tarjeta guardada');
+  await pendiente;
+  ui.guardando = false;
 }
 
 function irTab(t) { ui.tab = t; ui.armed = null; guardar('cg-tab', t); render(); window.scrollTo(0, 0); }
@@ -515,7 +531,7 @@ document.addEventListener('click', async (ev) => {
     case 'qNext': ui.payday = shiftPayday(ui.payday, 1); render(); break;
     case 'qHoy': ui.payday = nextPayday(todayISO()); render(); break;
     case 'addCard':
-      ui.cardEdit = { id: null, nombre: '', terminacion: '', diaCorte: '', diaPago: '', deudaInicial: '', mesInicial: ui.mes, color: COLORES[cards().length % COLORES.length] };
+      ui.cardEdit = { id: null, nuevoId: 'tc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nombre: '', terminacion: '', diaCorte: '', diaPago: '', deudaInicial: '', mesInicial: ui.mes, color: COLORES[cards().length % COLORES.length] };
       ui.sheet = 'card'; ui.armed = null; renderSheet(); $('#f-nombre')?.focus(); break;
     case 'editCard': ui.cardEdit = { ...D.cards[el.dataset.card] }; ui.sheet = 'card'; ui.armed = null; renderSheet(); break;
     case 'color': ui.cardEdit.color = el.dataset.c; renderSheet(); break;

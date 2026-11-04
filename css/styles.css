@@ -128,13 +128,15 @@ h2 { font-family: var(--display); font-weight: 400; font-size: 18.5px; margin: 0
 .cell.final .v { color: #9BDB6E; font-size: 18px; }
 .checks { display: flex; flex-direction: column; gap: 2px; border-top: 1.5px dashed var(--line); padding-top: 8px; }
 .ck { position: relative; display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
-.ck input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ck input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .box { flex: none; width: 26px; height: 26px; border-radius: 8px; border: 1.8px solid var(--line); background: var(--surface); display: grid; place-items: center; color: #fff; }
 .ck input:checked + .box { background: var(--grass); border-color: var(--grass); }
 .ck input:checked + .box::after { content: "✓"; font-weight: 700; font-size: 15px; }
 .ck input:focus-visible + .box { outline: 2.5px solid var(--grass); outline-offset: 2px; }
 .ck input:disabled + .box { opacity: .45; }
-.ck .t { flex: 1; min-width: 0; }
+.ck .t { flex: 1; min-width: 0; cursor: pointer; }
+.ck label.box { cursor: pointer; }
+.ck .qm { width: 112px; flex: none; min-height: 38px; padding: 6px 8px; font-family: var(--mono); font-size: 15px; text-align: right; background: var(--surface); border-radius: 10px; }
 .ck .t small { display: block; color: var(--muted); font-size: 11.5px; }
 .ck .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pagorow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }

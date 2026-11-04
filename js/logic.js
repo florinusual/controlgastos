@@ -116,7 +116,15 @@ export function computeCard(card, periodos, hastaMes, hoy = todayISO()) {
     const q = quincenasFor(card, k);
     const capturado = hasNum(p.pagoMes);
     const pagoMes = capturado ? Number(p.pagoMes) : null;
-    const montos = capturado ? splitPago(pagoMes, q.fechas.length) : q.fechas.map(() => null);
+    // Monto por quincena: la mitad del pago, salvo que el usuario escriba otro.
+    // Si solo escribe uno, el otro es lo que falta para completar el pago del corte.
+    const o = q.fechas.map((_, i) => (hasNum(p[`q${i + 1}Monto`]) ? Number(p[`q${i + 1}Monto`]) : null));
+    let montos = capturado ? splitPago(pagoMes, q.fechas.length) : q.fechas.map(() => null);
+    if (q.fechas.length === 2) {
+      if (o[0] !== null && o[1] !== null) montos = [o[0], o[1]];
+      else if (o[0] !== null) montos = [o[0], capturado ? round2(pagoMes - o[0]) : null];
+      else if (o[1] !== null) montos = [capturado ? round2(pagoMes - o[1]) : null, o[1]];
+    } else if (o[0] !== null) montos = [o[0]];
     const pagado = !!p.pagado;
     const montoPagado = hasNum(p.montoPagado) ? Number(p.montoPagado) : (pagoMes ?? 0);
     const depositado = pagado ? montoPagado : 0;
@@ -138,7 +146,7 @@ export function computeCard(card, periodos, hastaMes, hoy = todayISO()) {
     rows.push({
       mes: k, ajuste, deudaActual, corte, limite, aviso: q.aviso,
       quincenas: q.fechas.map((fecha, i) => ({
-        n: i + 1, fecha, monto: montos[i], separada: !!p[`q${i + 1}`], fechaSep: p[`q${i + 1}Fecha`] || null,
+        n: i + 1, fecha, monto: montos[i], editado: o[i] !== null, separada: !!p[`q${i + 1}`], fechaSep: p[`q${i + 1}Fecha`] || null,
       })),
       pagoMes, capturado, pagado, montoPagado, depositado, deudaFinal, estado,
       fechaReal: p.fechaReal || '', montoPagadoRaw: hasNum(p.montoPagado) ? Number(p.montoPagado) : null,
