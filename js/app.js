@@ -90,7 +90,7 @@ function render() {
   fab.hidden = ui.tab !== 'tarjetas';
   fab.textContent = '+ Tarjeta';
   fab.dataset.act = 'addCard';
-  const pendQ = asignacionesDe(cards(), D.periodos, nextPayday(todayISO())).some((a) => a.q.monto && !a.q.separada);
+  const pendQ = asignacionesDe(cards(), D.periodos, nextPayday(todayISO()), todayISO(), movsList()).some((a) => a.q.monto && !a.q.separada);
   $('#qDot').hidden = !pendQ;
 
   v.innerHTML = (store.mode === 'local' ? demoNote() : '') + (ui.error ? `<div class="note err">${esc(ui.error)}</div>` : '') +
@@ -113,15 +113,11 @@ function demoNote() {
 /* ---------- Tarjetas ---------- */
 function filasMes() {
   return cards().filter((c) => c.mesInicial <= ui.mes).map((card) => {
-    const rows = computeCard(card, D.periodos, ui.mes);
+    const rows = computeCard(card, D.periodos, ui.mes, todayISO(), movsList());
     return { card, r: rows[rows.length - 1] };
   });
 }
-function comprasDelCorte(card, r) {
-  const desde = cycleDates(card, addMonths(r.mes, -1)).corte;
-  const lista = Object.values(D.movs).filter((m) => m.tipo !== 'ingreso' && !m.pagoTarjeta && m.cardId === card.id && m.fecha > desde && m.fecha <= r.corte);
-  return { n: lista.length, total: round2(lista.reduce((s, m) => s + (m.monto || 0), 0)) };
-}
+const movsList = () => Object.values(D.movs);
 function estadoTag(e) {
   switch (e.tipo) {
     case 'ok': return '<span class="tag ok">Pagado a tiempo</span>';
@@ -139,7 +135,7 @@ function pendientesDePago() {
   const out = [];
   for (const card of cards()) {
     if (card.mesInicial > mesHoy) continue;
-    const rows = computeCard(card, D.periodos, mesHoy, hoy).filter((r) => r.corte <= hoy);
+    const rows = computeCard(card, D.periodos, mesHoy, hoy, movsList()).filter((r) => r.corte <= hoy);
     const sinPagar = rows.filter((r) => !r.pagado && r.estado.tipo !== 'saldada');
     if (!sinPagar.length) continue;
     const r = sinPagar[sinPagar.length - 1];
@@ -185,7 +181,7 @@ function vTarjetas() {
     <div class="kpi"><span class="label">Separado</span><b>${money(round2(sep))}</b><div class="bar"><i style="width:${pct}%"></i></div></div>
     <div class="kpi dark"><span class="label">Deuda final</span><b>${money(round2(fin))}</b></div></div>`;
   h += `<div class="stack">${filas.map(tarjetaTC).join('')}</div>`;
-  h += `<p class="sub" style="margin-top:14px">Deuda actual = deuda final del mes anterior + intereses o cargos. Deuda final = deuda actual − monto pagado. Escribe en cada quincena el monto que separaste y márcala cuando lo tengas apartado.</p>`;
+  h += `<p class="sub" style="margin-top:14px">Deuda actual = deuda final del mes anterior + compras anotadas con la tarjeta en ese corte + intereses del mes. Deuda final = deuda actual − monto pagado. Escribe en cada quincena el monto que separaste y márcala cuando lo tengas apartado.</p>`;
   return h;
 }
 
@@ -218,7 +214,6 @@ function tipQuincenas(card, r) {
 
 function tarjetaTC({ card, r }) {
   const a = attrs(card, r);
-  const compras = comprasDelCorte(card, r);
   const id = esc(card.id);
   const cero = r.deudaFinal <= 0 ? ' tc--cero' : ''; // sin adeudo: borde verde
   const btnC = (c) => `<button type="button" class="fold" data-act="fold" data-card="${id}" aria-expanded="${!c}" aria-label="${c ? 'Mostrar' : 'Contraer'} ${esc(card.nombre)}">${c ? '+' : '−'}</button>`;
@@ -236,7 +231,7 @@ function tarjetaTC({ card, r }) {
     </div>
     <div class="cells">
       <div class="cell"><span class="label">Deuda actual</span><span class="v">${money(r.deudaActual)}</span></div>
-      <label class="cell" for="aj-${card.id}-${r.mes}"><span class="label">Intereses / cargos</span><small class="meta">Se suma a la deuda de este mes</small>
+      <label class="cell" for="aj-${card.id}-${r.mes}"><span class="label">Intereses del mes</span><small class="meta">Se suma a la deuda de este mes</small>
         <input id="aj-${card.id}-${r.mes}" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00"></label>
       <label class="cell" for="pm-${card.id}-${r.mes}"><span class="label">Pago del corte</span>
         <input id="pm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura"></label>
@@ -255,7 +250,7 @@ function tarjetaTC({ card, r }) {
         <input id="mp-${card.id}-${r.mes}" inputmode="decimal" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}"></label>
     </div>
     <div class="cells" style="grid-template-columns:minmax(0,1fr)"><div class="cell final"><span class="label">Deuda final</span><span class="v">${money(r.deudaFinal)}</span></div></div>
-    <div class="tc-foot"><span class="meta">${compras.n ? `Compras anotadas en Movimientos este corte: ${money(compras.total)} (${compras.n})` : 'Sin compras anotadas con esta tarjeta este corte'}</span>
+    <div class="tc-foot"><span class="meta">${!r.compras.n ? 'Sin compras anotadas con esta tarjeta en este corte' : r.inicial ? `Compras anotadas en este corte: ${money(r.compras.total)} (${r.compras.n}). No se suman: la deuda inicial ya las incluye.` : `Compras de este corte sumadas a la deuda: ${money(r.compras.total)} (${r.compras.n})`}</span>
       <button class="link" data-act="history" data-card="${esc(card.id)}">Historial</button></div>
   </article>`;
 }
@@ -263,7 +258,7 @@ function tarjetaTC({ card, r }) {
 /* ---------- Quincenas ---------- */
 function vQuincenas() {
   const P = ui.payday;
-  const lista = asignacionesDe(cards(), D.periodos, P);
+  const lista = asignacionesDe(cards(), D.periodos, P, todayISO(), movsList());
   const total = round2(lista.reduce((s, a) => s + (a.q.monto || 0), 0));
   const hecho = round2(lista.reduce((s, a) => s + (a.q.separada ? a.q.monto || 0 : 0), 0));
   const pct = total ? Math.round((hecho / total) * 100) : 0;
@@ -397,12 +392,12 @@ function sheetHist(id) {
   const card = D.cards[id];
   if (!card) return '';
   const hasta = [ui.mes, todayISO().slice(0, 7)].sort().pop();
-  const rows = computeCard(card, D.periodos, hasta).reverse();
+  const rows = computeCard(card, D.periodos, hasta, todayISO(), movsList()).reverse();
   return `<div class="row spread"><h2 style="margin:0">${esc(card.nombre)}</h2><button type="button" class="x" data-act="closeSheet" aria-label="Cerrar">×</button></div>
     <p class="sub">Historial por corte. Toca un mes para abrirlo.</p>
     <div class="hist"><div class="hrow h"><span>Corte</span><span class="r">Deuda actual</span><span class="r">Pagado</span><span class="r">Deuda final</span></div>
     ${rows.map((r) => `<div class="hrow"><button class="link" style="text-align:left;padding:0" data-act="irMes" data-mes="${r.mes}">${esc(mesLargo(r.mes))}</button>
-      <span class="r">${money(r.deudaActual)}${r.ajuste ? `<br><small class="meta">+${money(r.ajuste)} int.</small>` : ''}</span>
+      <span class="r">${money(r.deudaActual)}${r.comprasSumadas ? `<br><small class="meta">+${money(r.comprasSumadas)} compras</small>` : ''}${r.ajuste ? `<br><small class="meta">+${money(r.ajuste)} int.</small>` : ''}</span>
       <span class="r">${r.pagado ? money(r.depositado) : '—'}</span><span class="r"><b>${money(r.deudaFinal)}</b></span></div>`).join('')}</div>`;
 }
 

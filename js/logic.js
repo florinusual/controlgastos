@@ -99,19 +99,30 @@ export function splitPago(pago, n) {
 
 /**
  * Calcula todos los meses de una tarjeta desde su mes inicial hasta `hastaMes`.
- * Deuda actual (mes 1) = deuda inicial + ajuste
- * Deuda actual (mes n) = deuda final (mes n-1) + ajuste (intereses / cargos del mes)
+ * Deuda actual (mes 1) = deuda inicial + intereses del mes   (la deuda inicial ya incluye las compras hasta ese corte)
+ * Deuda actual (mes n) = deuda final (mes n-1) + compras anotadas con la tarjeta en ese corte + intereses del mes
+ * Las compras de un corte son las salidas con fecha después del corte anterior y hasta el día de corte.
  * Deuda final          = deuda actual − monto depositado (si el pago está marcado)
  */
-export function computeCard(card, periodos, hastaMes, hoy = todayISO()) {
+export function comprasDe(card, mes, movs = []) {
+  const desde = cycleDates(card, addMonths(mes, -1)).corte;
+  const { corte } = cycleDates(card, mes);
+  const lista = movs.filter((m) => m.tipo !== 'ingreso' && !m.pagoTarjeta && m.cardId === card.id && m.fecha > desde && m.fecha <= corte);
+  return { n: lista.length, total: round2(lista.reduce((t, m) => t + (Number(m.monto) || 0), 0)) };
+}
+
+export function computeCard(card, periodos, hastaMes, hoy = todayISO(), movs = []) {
   const rows = [];
   let prevFinal = null;
   let k = card.mesInicial;
   while (k <= hastaMes) {
     const p = periodos[`${card.id}_${k}`] || {};
     const ajuste = num(p.ajuste);
-    const base = k === card.mesInicial ? num(card.deudaInicial) : prevFinal;
-    const deudaActual = round2(base + ajuste);
+    const inicial = k === card.mesInicial;
+    const base = inicial ? num(card.deudaInicial) : prevFinal;
+    const compras = comprasDe(card, k, movs);
+    const comprasSumadas = inicial ? 0 : compras.total;
+    const deudaActual = round2(base + comprasSumadas + ajuste);
     const { corte, limite } = cycleDates(card, k);
     const q = quincenasFor(card, k);
     const capturado = hasNum(p.pagoMes);
@@ -138,7 +149,7 @@ export function computeCard(card, periodos, hastaMes, hoy = todayISO()) {
     }
 
     rows.push({
-      mes: k, ajuste, deudaActual, corte, limite, aviso: q.aviso,
+      mes: k, ajuste, deudaActual, inicial, compras, comprasSumadas, corte, limite, aviso: q.aviso,
       quincenas: q.fechas.map((fecha, i) => ({
         n: i + 1, fecha, monto: montos[i], editado: o[i] !== null, separada: !!p[`q${i + 1}`], fechaSep: p[`q${i + 1}Fecha`] || null,
       })),
@@ -175,13 +186,13 @@ export function addDayISO(fecha, n) {
 }
 
 /** Todo lo que toca separar en la quincena `fecha`, de todas las tarjetas y cortes. */
-export function asignacionesDe(cards, periodos, fecha, hoy = todayISO()) {
+export function asignacionesDe(cards, periodos, fecha, hoy = todayISO(), movs = []) {
   const out = [];
   const meses = [-2, -1, 0, 1].map((n) => addMonths(fecha.slice(0, 7), n));
   for (const card of cards) {
     const hasta = meses[meses.length - 1];
     if (card.mesInicial > hasta) continue;
-    const rows = computeCard(card, periodos, hasta, hoy);
+    const rows = computeCard(card, periodos, hasta, hoy, movs);
     for (const r of rows) {
       if (!meses.includes(r.mes)) continue;
       for (const q of r.quincenas) if (q.fecha === fecha) out.push({ card, r, q });
