@@ -348,9 +348,8 @@ function sheetCard() {
     <div class="grid2">
       <label class="field" for="f-corte"><span class="label">Día de corte</span><input id="f-corte" data-cf="diaCorte" type="number" min="1" max="31" value="${esc(c.diaCorte)}"></label>
       <label class="field" for="f-pago"><span class="label">Día límite de pago</span><input id="f-pago" data-cf="diaPago" type="number" min="1" max="31" value="${esc(c.diaPago)}"></label></div>
-    <div class="grid2">
       <label class="field" for="f-mes"><span class="label">Mes del primer corte</span><input id="f-mes" data-cf="mesInicial" type="month" value="${esc(c.mesInicial)}"></label>
-      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label></div>
+      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label>
     <div class="field"><span class="label">Color</span><div class="swatches">${COLORES.map((col) => `<button type="button" class="sw" style="background:${col}" data-act="color" data-c="${col}" aria-pressed="${c.color === col}" aria-label="Color ${col}"></button>`).join('')}</div></div>
     <p class="hint" id="cardPreview">${esc(previewCard(c))}</p>
     <p class="msg" id="cardMsg" role="alert" style="color:var(--bad)"></p>

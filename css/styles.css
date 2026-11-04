@@ -235,3 +235,9 @@ h2 { font-family: var(--display); font-weight: 400; font-size: 18.5px; margin: 0
 .fold { flex: none; width: 30px; height: 30px; border-radius: 9px; background: var(--black); color: #9BDB6E; font-size: 18px; font-weight: 700; line-height: 1; display: grid; place-items: center; }
 .tc--min { padding: 10px 14px; }
 .plastic.sm { width: 34px; height: 22px; border-radius: 5px; }
+
+/* Safari en iPhone: los campos de fecha y mes no deben salirse de su espacio */
+input[type="date"], input[type="month"], input[type="time"] { -webkit-appearance: none; appearance: none; width: 100%; min-width: 0; max-width: 100%; display: block; min-height: 46px; }
+input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-date-and-time-value, input[type="time"]::-webkit-date-and-time-value { text-align: left; min-width: 0; }
+.grid2 { row-gap: 12px; }
+#sheet .panel > * { max-width: 100%; }
