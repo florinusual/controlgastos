@@ -133,9 +133,37 @@ function estadoTag(e) {
   }
 }
 
+/* Tarjetas pendientes de pagar: el corte más reciente (ya ocurrido) de cada tarjeta que no está marcado como pagado. */
+function pendientesDePago() {
+  const hoy = todayISO(), mesHoy = hoy.slice(0, 7);
+  const out = [];
+  for (const card of cards()) {
+    if (card.mesInicial > mesHoy) continue;
+    const rows = computeCard(card, D.periodos, mesHoy, hoy).filter((r) => r.corte <= hoy);
+    const sinPagar = rows.filter((r) => !r.pagado && r.estado.tipo !== 'saldada');
+    if (!sinPagar.length) continue;
+    const r = sinPagar[sinPagar.length - 1];
+    if (rows[rows.length - 1] !== r) continue; // el corte más reciente ya está pagado
+    out.push({ card, r, anteriores: sinPagar.length - 1 });
+  }
+  return out.sort((a, b) => a.r.limite.localeCompare(b.r.limite));
+}
+
+function vPendientes() {
+  const lista = pendientesDePago();
+  if (!cards().length) return '';
+  if (!lista.length) return '<div class="pend ok"><span class="label">Pendientes de pago</span><p>Todas tus tarjetas están pagadas según sus cortes más recientes.</p></div>';
+  const total = round2(lista.reduce((t, { r }) => t + (r.capturado ? r.pagoMes : 0), 0));
+  return `<section class="pend"><div class="row spread"><span class="label">Pendientes de pago · ${lista.length}</span>${total ? `<span class="num">${money(total)}</span>` : ''}</div>
+    <ul>${lista.map(({ card, r, anteriores }) => `<li><button class="pend-it" data-act="irPend" data-mes="${r.mes}" data-card="${esc(card.id)}">
+      <span class="plastic sm" style="background:${esc(card.color || COLORES[0])}"></span>
+      <span class="pend-t"><b>${esc(card.nombre)}</b><small>Corte ${esc(fechaCorta(r.corte))} · paga el ${esc(fechaCorta(r.limite))}${anteriores ? ` · ${plural(anteriores, 'corte anterior', 'cortes anteriores')} sin pagar` : ''}</small></span>
+      <span class="pend-r"><span class="num">${r.capturado ? money(r.pagoMes) : 'Sin capturar'}</span>${estadoTag(r.estado)}</span></button></li>`).join('')}</ul></section>`;
+}
+
 function vTarjetas() {
   const filas = filasMes();
-  let h = `<h1>Tarjetas</h1>
+  let h = `<h1>Tarjetas</h1>${vPendientes()}
     <div class="nav"><button class="round" data-act="mesPrev" aria-label="Mes anterior">‹</button>
       <div class="center"><span class="label">Corte de</span><b>${esc(mesLargo(ui.mes))}</b></div>
       <button class="round" data-act="mesNext" aria-label="Mes siguiente">›</button></div>`;
@@ -512,6 +540,11 @@ document.addEventListener('click', async (ev) => {
     case 'mesPrev': ui.mes = addMonths(ui.mes, -1); render(); break;
     case 'mesNext': ui.mes = addMonths(ui.mes, 1); render(); break;
     case 'mesHoy': ui.mes = todayISO().slice(0, 7); render(); break;
+    case 'irPend': {
+      ui.mes = el.dataset.mes; ui.contraidas.delete(el.dataset.card); guardar('cg-contraidas', JSON.stringify([...ui.contraidas])); render();
+      document.querySelector(`[data-act="fold"][data-card="${el.dataset.card}"]`)?.closest('.tc')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      break;
+    }
     case 'irMes': ui.mes = el.dataset.mes; ui.tab = 'tarjetas'; cerrarSheet(); render(); break;
     case 'qPrev': ui.payday = shiftPayday(ui.payday, -1); render(); break;
     case 'qNext': ui.payday = shiftPayday(ui.payday, 1); render(); break;
