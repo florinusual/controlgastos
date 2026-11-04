@@ -42,6 +42,7 @@ const ui = {
   sheet: null,
   cardEdit: null,
   armed: null,
+  tips: new Set(),
   cargado: false,
   error: '',
 };
@@ -168,6 +169,24 @@ function ckQ(card, r, q, pre) {
     <input class="qm" id="${mid}" inputmode="decimal" data-ch="qMonto" data-n="${q.n}" ${attrs(card, r)} value="${q.monto ?? ''}" placeholder="0.00" aria-label="Monto a separar en la ${q.n}ª quincena"></div>`;
 }
 
+// Nota de cuánto conviene separar por quincena. Solo informa: no llena ni cambia ningún campo.
+function tipQuincenas(card, r) {
+  const key = `${card.id}_${r.mes}`, abierto = ui.tips.has(key);
+  const fechas = r.quincenas.map((q) => fechaCorta(q.fecha)).join(' y ');
+  let txt;
+  if (!r.capturado) txt = `Captura el pago del corte para ver cuánto separar. Te tocan las quincenas del ${fechas}.`;
+  else {
+    const mitad = round2(r.pagoMes / 2);
+    const escrito = round2(r.quincenas.reduce((t, q) => t + (q.monto || 0), 0));
+    const falta = round2(r.pagoMes - escrito);
+    txt = `Sugerido: ${money(mitad)} en cada quincena (${money(r.pagoMes)} ÷ 2), el ${fechas}.` +
+      (escrito ? ` Llevas escrito ${money(escrito)}; ${falta > 0 ? `faltan ${money(falta)}` : falta < 0 ? `te pasaste por ${money(-falta)}` : 'ya cubre el pago'}.` : '');
+  }
+  if (r.aviso) txt += ` ${r.aviso}`;
+  return `<div class="tip"><button type="button" class="tipbtn" data-act="tip" data-k="${esc(key)}" aria-expanded="${abierto}" title="${esc(txt)}">
+    <span class="i" aria-hidden="true">i</span>¿Cuánto separar por quincena?</button>${abierto ? `<p class="bubble" role="note">${esc(txt)}</p>` : ''}</div>`;
+}
+
 function tarjetaTC({ card, r }) {
   const a = attrs(card, r);
   const compras = comprasDelCorte(card, r);
@@ -186,7 +205,7 @@ function tarjetaTC({ card, r }) {
         <input id="pm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura"></label>
       <div class="cell"><span class="label">Separado</span><span class="v">${money(round2(r.quincenas.reduce((t, q) => t + (q.separada && q.monto ? q.monto : 0), 0)))}</span></div>
     </div>
-    ${r.aviso ? `<div class="hint">${esc(r.aviso)}</div>` : ''}
+    ${tipQuincenas(card, r)}
     <div class="checks">
       ${r.quincenas.map((q) => ckQ(card, r, q, 'q')).join('')}
       <label class="ck" for="pg-${card.id}-${r.mes}"><input type="checkbox" id="pg-${card.id}-${r.mes}" data-ch="pagado" ${a} ${r.pagado ? 'checked' : ''}>
@@ -362,10 +381,10 @@ function ejemplo() {
   const lim = (id, m) => cycleDates(c[id], m).limite;
   const p = (id, mes, x) => ({ [`${id}_${mes}`]: { id: `${id}_${mes}`, cardId: id, mes, ...x } });
   const periodos = {
-    ...p('ej1', prev, { pagoMes: 3200, q1: true, q2: true, pagado: true, fechaReal: lim('ej1', prev) }),
-    ...p('ej2', prev, { pagoMes: 1800, q1: true, q2: true, pagado: true, fechaReal: addDayISO(lim('ej2', prev), 2) }),
-    ...p('ej3', prev, { pagoMes: 900, q1: true, q2: true, pagado: true, fechaReal: lim('ej3', prev) }),
-    ...p('ej1', actual, { pagoMes: 2950, q1: true }),
+    ...p('ej1', prev, { pagoMes: 3200, q1Monto: 1600, q2Monto: 1600, q1: true, q2: true, pagado: true, fechaReal: lim('ej1', prev) }),
+    ...p('ej2', prev, { pagoMes: 1800, q1Monto: 900, q2Monto: 900, q1: true, q2: true, pagado: true, fechaReal: addDayISO(lim('ej2', prev), 2) }),
+    ...p('ej3', prev, { pagoMes: 900, q1Monto: 450, q2Monto: 450, q1: true, q2: true, pagado: true, fechaReal: lim('ej3', prev) }),
+    ...p('ej1', actual, { pagoMes: 2950, q1Monto: 1500, q1: true }),
     ...p('ej2', actual, { ajuste: 145.3, pagoMes: 1750 }),
   };
   const h = todayISO(), ayer = addDayISO(h, -1);
@@ -513,6 +532,7 @@ document.addEventListener('click', async (ev) => {
       break;
     case 'history': ui.sheet = 'hist:' + el.dataset.card; renderSheet(); break;
     case 'closeSheet': cerrarSheet(); break;
+    case 'tip': { const k = el.dataset.k; if (ui.tips.has(k)) ui.tips.delete(k); else ui.tips.add(k); render(); break; }
     case 'movTipo': ui.draft.tipo = el.dataset.t; render(); break;
     case 'metodo': {
       const m = el.dataset.m; const c = cards().find((x) => x.nombre === m);
