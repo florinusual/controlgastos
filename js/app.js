@@ -215,7 +215,8 @@ function tipQuincenas(card, r) {
 function tarjetaTC({ card, r }) {
   const a = attrs(card, r);
   const id = esc(card.id);
-  const cero = r.deudaFinal <= 0 ? ' tc--cero' : ''; // sin adeudo: borde verde
+  // Sin adeudo: verde agua pastel. Pagada (con deuda restante): verde pastel.
+  const cero = r.deudaFinal <= 0 ? ' tc--cero' : r.pagado ? ' tc--pagada' : '';
   const btnC = (c) => `<button type="button" class="fold" data-act="fold" data-card="${id}" aria-expanded="${!c}" aria-label="${c ? 'Mostrar' : 'Contraer'} ${esc(card.nombre)}">${c ? '+' : '−'}</button>`;
   if (ui.contraidas.has(card.id)) {
     return `<article class="card tc tc--min${cero}"><div class="row">${btnC(true)}

@@ -259,4 +259,7 @@ input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-da
 .pend-r .num { font-size: 14px; }
 
 /* tarjeta sin adeudo */
-.tc--cero { border: 2px solid var(--grass); }
+.tc--pagada { background: #EAF6E1; border: 2px solid #B9DFA0; }
+.tc--cero { background: #E2F5F1; border: 2px solid #9ED8CC; }
+.tc--pagada .cell:not(.final), .tc--cero .cell:not(.final) { background: rgba(255, 255, 255, .6); }
+.tc--pagada .checks, .tc--cero .checks { border-top-color: rgba(0, 0, 0, .1); }
