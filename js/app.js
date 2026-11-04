@@ -43,6 +43,7 @@ const ui = {
   cardEdit: null,
   armed: null,
   tips: new Set(),
+  contraidas: new Set((() => { try { return JSON.parse(leer('cg-contraidas') || '[]'); } catch { return []; } })()),
   cargado: false,
   error: '',
 };
@@ -190,12 +191,19 @@ function tipQuincenas(card, r) {
 function tarjetaTC({ card, r }) {
   const a = attrs(card, r);
   const compras = comprasDelCorte(card, r);
+  const id = esc(card.id);
+  const btnC = (c) => `<button type="button" class="fold" data-act="fold" data-card="${id}" aria-expanded="${!c}" aria-label="${c ? 'Mostrar' : 'Contraer'} ${esc(card.nombre)}">${c ? '+' : '−'}</button>`;
+  if (ui.contraidas.has(card.id)) {
+    return `<article class="card tc tc--min"><div class="row">${btnC(true)}
+      <span class="plastic sm" style="background:${esc(card.color || COLORES[0])}"></span>
+      <button class="tc-name" style="flex:1;text-align:left" data-act="fold" data-card="${id}">${esc(card.nombre)}</button></div></article>`;
+  }
   return `<article class="card tc">
     <div class="row spread" style="align-items:flex-start;flex-wrap:wrap">
-      <button class="tc-head" data-act="editCard" data-card="${esc(card.id)}" aria-label="Editar ${esc(card.nombre)}">
+      <div class="row" style="flex:1 1 240px;align-items:center">${btnC(false)}<button class="tc-head" data-act="editCard" data-card="${esc(card.id)}" aria-label="Editar ${esc(card.nombre)}">
         <span class="plastic" style="background:${esc(card.color || COLORES[0])}"></span>
         <span style="min-width:0"><span class="tc-name">${esc(card.nombre)}</span><br><span class="tc-dates">Corte ${esc(fechaCorta(r.corte))} → límite ${esc(fechaCorta(r.limite))}</span></span>
-      </button>${estadoTag(r.estado)}
+      </button></div>${estadoTag(r.estado)}
     </div>
     <div class="cells">
       <div class="cell"><span class="label">Deuda actual</span><span class="v">${money(r.deudaActual)}</span></div>
@@ -434,14 +442,6 @@ document.addEventListener('change', async (ev) => {
     patch = { [k]: Number.isFinite(v) ? round2(v) : null };
   }
   await put('periodos', `${card}_${mes}`, { cardId: card, mes, ...patch }).catch(() => {});
-  if (patch.pagado && !p.pagado) {
-    const c = D.cards[card];
-    const r = computeCard(c, D.periodos, mes).pop();
-    toast(`Pago de ${c.nombre} marcado`, {
-      label: 'Anotar salida',
-      fn: () => { ui.editMov = null; ui.draft = nuevoDraft({ pagoTarjeta: c.id, metodo: 'Débito', concepto: `Pago tarjeta ${c.nombre}`, monto: r.montoPagado ? String(r.montoPagado) : '', fecha: r.fechaReal || todayISO() }); irTab('movimientos'); },
-    });
-  }
 });
 
 document.addEventListener('submit', async (ev) => {
@@ -532,6 +532,11 @@ document.addEventListener('click', async (ev) => {
       break;
     case 'history': ui.sheet = 'hist:' + el.dataset.card; renderSheet(); break;
     case 'closeSheet': cerrarSheet(); break;
+    case 'fold': {
+      const k = el.dataset.card;
+      if (ui.contraidas.has(k)) ui.contraidas.delete(k); else ui.contraidas.add(k);
+      guardar('cg-contraidas', JSON.stringify([...ui.contraidas])); render(); break;
+    }
     case 'tip': { const k = el.dataset.k; if (ui.tips.has(k)) ui.tips.delete(k); else ui.tips.add(k); render(); break; }
     case 'movTipo': ui.draft.tipo = el.dataset.t; render(); break;
     case 'metodo': {
