@@ -452,9 +452,29 @@ document.addEventListener('input', (ev) => {
   }
 });
 
+/* Toques en el celular: si la pantalla se redibuja (o se recorre al cerrarse el teclado) entre que
+   pones el dedo y lo levantas, el toque puede caer en otra casilla. Por eso:
+   1) los datos que llegan mientras tocas esperan a que termine el toque para redibujar, y
+   2) una casilla solo cambia si el toque empezó sobre esa misma casilla. */
+const toque = { activo: false, fin: 0, inicio: 0, casilla: null };
+document.addEventListener('pointerdown', (ev) => {
+  toque.activo = true; toque.inicio = Date.now();
+  toque.casilla = ev.target.closest?.('.ck')?.querySelector('input[type="checkbox"]')?.id || null;
+}, true);
+['pointerup', 'pointercancel'].forEach((t) => document.addEventListener(t, () => { toque.activo = false; toque.fin = Date.now(); }, true));
+function pedirRender() {
+  clearTimeout(pedirRender.t);
+  if (toque.activo || Date.now() - toque.fin < 400) { pedirRender.t = setTimeout(pedirRender, 120); return; }
+  render();
+}
+
 document.addEventListener('change', async (ev) => {
   const el = ev.target, k = el.dataset.ch;
   if (!k) return;
+  if (el.type === 'checkbox' && Date.now() - toque.inicio < 1500 && toque.casilla !== el.id) {
+    el.checked = !el.checked; // toque que empezó en otro lugar: no cambiar esta casilla
+    return;
+  }
   const { card, mes } = el.dataset;
   const p = D.periodos[`${card}_${mes}`] || {};
   let patch;
@@ -614,7 +634,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && ui.she
     user = u; unwatch?.(); unwatch = null; ui.cargado = false;
     Object.keys(D).forEach((k) => { D[k] = {}; });
     if (u) {
-      unwatch = store.watch((d) => { Object.assign(D, d); ui.cargado = true; ui.error = ''; render(); },
+      unwatch = store.watch((d) => { Object.assign(D, d); ui.cargado = true; ui.error = ''; pedirRender(); },
         (e) => { ui.error = `No se pudieron leer tus datos: ${e.message || e}`; ui.cargado = true; render(); });
       if (store.mode === 'local' && store.isEmpty()) store.seed(ejemplo());
     }

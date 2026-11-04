@@ -1,5 +1,5 @@
 /* Service worker de Control de gastos: guarda la app para abrirla sin conexión. */
-var VERSION = "gastos-v14";
+var VERSION = "gastos-v15";
 var SHELL = ["./", "index.html", "manifest.webmanifest", "css/styles.css", "js/app.js", "js/logic.js", "js/store.js", "js/firebase-config.js",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
 var EXTERNOS = "gastos-externos";
