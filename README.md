@@ -6,10 +6,10 @@ App web instalable (PWA) para llevar tus tarjetas de crédito, lo que separas en
 
 ### Tarjetas
 - Registras cada tarjeta: nombre, últimos 4 dígitos, día de corte, día límite de pago, deuda actual y el mes del primer corte.
-- En cada corte capturas el **pago del corte** y se divide entre **dos quincenas**. Si solo una quincena cae entre el corte y la fecha límite, la otra parte va en la quincena anterior al corte.
+- En cada corte capturas el **pago del corte** y escribes a mano lo que separas en cada una de las **dos quincenas** (no se calcula ni se ajusta solo).
 - Marcas la 1ª y 2ª quincena como separadas (queda la fecha), **Ya pagué la tarjeta**, la **fecha real de pago** y el **monto pagado**. Si pagas después de la fecha límite se marca el atraso en días.
 - **Deuda final = deuda actual − monto pagado.** El mes siguiente, **deuda actual = deuda final anterior + intereses / cargos**.
-- Vista de tarjetas (cómoda en el celular) o de tabla. Historial por tarjeta.
+- Historial por tarjeta.
 - Cada tarjeta muestra las compras que anotaste con ella en **Movimientos** durante ese corte.
 
 ### Quincenas

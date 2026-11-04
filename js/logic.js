@@ -116,15 +116,9 @@ export function computeCard(card, periodos, hastaMes, hoy = todayISO()) {
     const q = quincenasFor(card, k);
     const capturado = hasNum(p.pagoMes);
     const pagoMes = capturado ? Number(p.pagoMes) : null;
-    // Monto por quincena: la mitad del pago, salvo que el usuario escriba otro.
-    // Si solo escribe uno, el otro es lo que falta para completar el pago del corte.
+    // Monto por quincena: solo lo que el usuario escribe a mano; nunca se calcula ni se ajusta.
     const o = q.fechas.map((_, i) => (hasNum(p[`q${i + 1}Monto`]) ? Number(p[`q${i + 1}Monto`]) : null));
-    let montos = capturado ? splitPago(pagoMes, q.fechas.length) : q.fechas.map(() => null);
-    if (q.fechas.length === 2) {
-      if (o[0] !== null && o[1] !== null) montos = [o[0], o[1]];
-      else if (o[0] !== null) montos = [o[0], capturado ? round2(pagoMes - o[0]) : null];
-      else if (o[1] !== null) montos = [capturado ? round2(pagoMes - o[1]) : null, o[1]];
-    } else if (o[0] !== null) montos = [o[0]];
+    const montos = o;
     const pagado = !!p.pagado;
     const montoPagado = hasNum(p.montoPagado) ? Number(p.montoPagado) : (pagoMes ?? 0);
     const depositado = pagado ? montoPagado : 0;

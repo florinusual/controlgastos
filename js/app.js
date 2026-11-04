@@ -35,7 +35,6 @@ const ui = {
   tab: leer('cg-tab') || 'tarjetas',
   mes: hoy0.slice(0, 7),
   payday: nextPayday(hoy0),
-  vistaTC: leer('cg-vista') || 'tarjetas',
   movPasados: false,
   tienda: TIENDAS.includes(leer('cg-tienda')) ? leer('cg-tienda') : 'Walmart',
   draft: nuevoDraft(),
@@ -144,22 +143,19 @@ function vTarjetas() {
       ? '<div class="empty"><b>Ninguna tarjeta en este mes</b>Tus tarjetas empiezan en un mes posterior.</div>'
       : '<div class="empty"><b>Agrega tu primera tarjeta</b>Necesitas el nombre, el día de corte, el día límite de pago y la deuda actual. Toca “+ Tarjeta”.</div>');
   }
-  let deuda = 0, pagos = 0, sep = 0, sepTot = 0, fin = 0;
+  let deuda = 0, pagos = 0, sep = 0, fin = 0;
   filas.forEach(({ r }) => {
     deuda += r.deudaActual; fin += r.deudaFinal; if (r.capturado) pagos += r.pagoMes;
-    r.quincenas.forEach((q) => { if (q.monto) { sepTot += q.monto; if (q.separada) sep += q.monto; } });
+    r.quincenas.forEach((q) => { if (q.monto && q.separada) sep += q.monto; });
   });
-  const pct = sepTot ? Math.round((sep / sepTot) * 100) : 0;
+  const pct = pagos ? Math.min(100, Math.round((sep / pagos) * 100)) : 0;
   h += `<div class="kpis">
     <div class="kpi"><span class="label">Deuda actual</span><b>${money(round2(deuda))}</b></div>
     <div class="kpi"><span class="label">Pagos del corte</span><b>${money(round2(pagos))}</b></div>
     <div class="kpi"><span class="label">Separado</span><b>${money(round2(sep))}</b><div class="bar"><i style="width:${pct}%"></i></div></div>
-    <div class="kpi dark"><span class="label">Deuda final</span><b>${money(round2(fin))}</b></div></div>
-    <div class="seg" role="group" aria-label="Vista">
-      <button data-act="vista" data-v="tarjetas" aria-pressed="${ui.vistaTC === 'tarjetas'}">Tarjetas</button>
-      <button data-act="vista" data-v="tabla" aria-pressed="${ui.vistaTC === 'tabla'}">Tabla</button></div>`;
-  h += ui.vistaTC === 'tabla' ? tablaTC(filas) : `<div class="stack">${filas.map(tarjetaTC).join('')}</div>`;
-  h += `<p class="sub" style="margin-top:14px">Deuda actual = deuda final del mes anterior + intereses o cargos. Deuda final = deuda actual − monto pagado. El pago del corte se divide entre dos quincenas; si solo una cae entre el corte y la fecha límite, la otra parte va en la quincena anterior al corte.</p>`;
+    <div class="kpi dark"><span class="label">Deuda final</span><b>${money(round2(fin))}</b></div></div>`;
+  h += `<div class="stack">${filas.map(tarjetaTC).join('')}</div>`;
+  h += `<p class="sub" style="margin-top:14px">Deuda actual = deuda final del mes anterior + intereses o cargos. Deuda final = deuda actual − monto pagado. Escribe en cada quincena el monto que separaste y márcala cuando lo tengas apartado.</p>`;
   return h;
 }
 
@@ -168,8 +164,8 @@ function ckQ(card, r, q, pre) {
   const id = `${pre}-${card.id}-${r.mes}-${q.n}`;
   const mid = `qm-${card.id}-${r.mes}-${q.n}`;
   return `<div class="ck"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''}>
-    <label class="box" for="${id}"></label><label class="t" for="${id}">${q.n}ª quincena · ${esc(fechaCorta(q.fecha))}${q.separada && q.fechaSep ? `<small>Separado el ${esc(fechaCorta(q.fechaSep))}</small>` : q.editado ? '<small>Monto ajustado por ti</small>' : ''}</label>
-    <input class="qm" id="${mid}" inputmode="decimal" data-ch="qMonto" data-n="${q.n}" ${attrs(card, r)} value="${q.editado ? q.monto : ''}" placeholder="${q.monto === null ? 'Monto' : q.monto.toFixed(2)}" aria-label="Monto a separar en la ${q.n}ª quincena"></div>`;
+    <label class="box" for="${id}"></label><label class="t" for="${id}">${q.n}ª quincena · ${esc(fechaCorta(q.fecha))}${q.separada && q.fechaSep ? `<small>Separado el ${esc(fechaCorta(q.fechaSep))}</small>` : ''}</label>
+    <input class="qm" id="${mid}" inputmode="decimal" data-ch="qMonto" data-n="${q.n}" ${attrs(card, r)} value="${q.monto ?? ''}" placeholder="0.00" aria-label="Monto a separar en la ${q.n}ª quincena"></div>`;
 }
 
 function tarjetaTC({ card, r }) {
@@ -188,7 +184,7 @@ function tarjetaTC({ card, r }) {
         <input id="aj-${card.id}-${r.mes}" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00"></label>
       <label class="cell" for="pm-${card.id}-${r.mes}"><span class="label">Pago del corte</span>
         <input id="pm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura"></label>
-      <div class="cell"><span class="label">Por quincena</span><span class="v">${r.quincenas.map((q) => money(q.monto)).join(' / ')}</span></div>
+      <div class="cell"><span class="label">Separado</span><span class="v">${money(round2(r.quincenas.reduce((t, q) => t + (q.separada && q.monto ? q.monto : 0), 0)))}</span></div>
     </div>
     ${r.aviso ? `<div class="hint">${esc(r.aviso)}</div>` : ''}
     <div class="checks">
@@ -206,33 +202,6 @@ function tarjetaTC({ card, r }) {
     <div class="tc-foot"><span class="meta">${compras.n ? `Compras anotadas en Movimientos este corte: ${money(compras.total)} (${compras.n})` : 'Sin compras anotadas con esta tarjeta este corte'}</span>
       <button class="link" data-act="history" data-card="${esc(card.id)}">Historial</button></div>
   </article>`;
-}
-
-function tablaTC(filas) {
-  const tot = filas.reduce((t, { r }) => ({ a: t.a + r.deudaActual, p: t.p + (r.pagoMes || 0), d: t.d + r.depositado, f: t.f + r.deudaFinal }), { a: 0, p: 0, d: 0, f: 0 });
-  const celdaQ = (card, r, i) => {
-    const q = r.quincenas[i];
-    if (!q) return '<td>—</td>';
-    const id = `tq-${card.id}-${r.mes}-${q.n}`;
-    return `<td><label class="ck" for="${id}"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''} ${q.monto === null ? 'disabled' : ''}><span class="box"></span>
-      <span class="t"><span class="amt">${money(q.monto)}</span><small>${esc(fechaCorta(q.fecha))}</small></span></label></td>`;
-  };
-  return `<div class="tabla-wrap"><table class="tabla"><thead><tr>
-    <th class="sticky">Tarjeta</th><th>Corte → límite</th><th class="r">Intereses</th><th class="r">Deuda actual</th><th class="r">Pago del corte</th>
-    <th>1ª quincena</th><th>2ª quincena</th><th>Pagado</th><th>Fecha real</th><th class="r">Monto pagado</th><th class="r">Deuda final</th><th>Estado</th></tr></thead><tbody>
-    ${filas.map(({ card, r }) => { const a = attrs(card, r); return `<tr>
-      <th class="sticky"><button class="link" style="padding:0;text-align:left" data-act="editCard" data-card="${esc(card.id)}">${esc(card.nombre)}</button></th>
-      <td class="meta">${esc(fechaCorta(r.corte))}<br>→ ${esc(fechaCorta(r.limite))}</td>
-      <td class="r"><input id="taj-${card.id}-${r.mes}" inputmode="decimal" data-ch="ajuste" ${a} value="${r.ajusteRaw ?? ''}" placeholder="0.00" aria-label="Intereses de ${esc(card.nombre)}"></td>
-      <td class="r num">${money(r.deudaActual)}</td>
-      <td class="r"><input id="tpm-${card.id}-${r.mes}" inputmode="decimal" data-ch="pagoMes" ${a} value="${r.capturado ? r.pagoMes : ''}" placeholder="Captura" aria-label="Pago del corte de ${esc(card.nombre)}"></td>
-      ${celdaQ(card, r, 0)}${celdaQ(card, r, 1)}
-      <td><label class="ck" for="tpg-${card.id}-${r.mes}"><input type="checkbox" id="tpg-${card.id}-${r.mes}" data-ch="pagado" ${a} ${r.pagado ? 'checked' : ''}><span class="box"></span></label></td>
-      <td><input id="tfr-${card.id}-${r.mes}" type="date" data-ch="fechaReal" ${a} value="${esc(r.fechaReal)}" aria-label="Fecha real de pago de ${esc(card.nombre)}"></td>
-      <td class="r"><input id="tmp-${card.id}-${r.mes}" inputmode="decimal" data-ch="montoPagado" ${a} value="${r.montoPagadoRaw ?? ''}" placeholder="${r.capturado ? r.pagoMes.toFixed(2) : '0.00'}" aria-label="Monto pagado de ${esc(card.nombre)}"></td>
-      <td class="r num"><b>${money(r.deudaFinal)}</b></td><td>${estadoTag(r.estado)}</td></tr>`; }).join('')}
-    </tbody><tfoot><tr><th class="sticky">Total</th><td></td><td></td><td class="r num">${money(round2(tot.a))}</td><td class="r num">${money(round2(tot.p))}</td>
-      <td></td><td></td><td></td><td></td><td class="r num">${money(round2(tot.d))}</td><td class="r num">${money(round2(tot.f))}</td><td></td></tr></tfoot></table></div>`;
 }
 
 /* ---------- Quincenas ---------- */
@@ -254,9 +223,9 @@ function vQuincenas() {
   if (!lista.length) return h + '<div class="empty"><b>Nada que separar</b>Ninguna tarjeta tiene pago asignado a esta quincena.</div>';
   h += '<div class="card checks" style="border-top:1px solid var(--line);padding-top:6px">' + lista.map(({ card, r, q }) => {
     const id = `qq-${card.id}-${r.mes}-${q.n}`;
-    return `<label class="ck" for="${id}"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''} ${q.monto === null ? 'disabled' : ''}>
+    return `<label class="ck" for="${id}"><input type="checkbox" id="${id}" data-ch="q" data-n="${q.n}" ${attrs(card, r)} ${q.separada ? 'checked' : ''}>
       <span class="box"></span><span class="t"><b>${esc(card.nombre)}</b><small>${q.n}ª parte del corte de ${esc(mesLargo(r.mes))} · paga el ${esc(fechaCorta(r.limite))}</small></span>
-      <span class="amt">${q.monto === null ? '<span class="meta">Falta capturar</span>' : money(q.monto)}</span></label>`;
+      <span class="amt">${q.monto === null ? '<span class="meta">Sin monto</span>' : money(q.monto)}</span></label>`;
   }).join('') + '</div>';
   return h;
 }
@@ -526,7 +495,6 @@ document.addEventListener('click', async (ev) => {
     case 'mesNext': ui.mes = addMonths(ui.mes, 1); render(); break;
     case 'mesHoy': ui.mes = todayISO().slice(0, 7); render(); break;
     case 'irMes': ui.mes = el.dataset.mes; ui.tab = 'tarjetas'; cerrarSheet(); render(); break;
-    case 'vista': ui.vistaTC = el.dataset.v; guardar('cg-vista', ui.vistaTC); render(); break;
     case 'qPrev': ui.payday = shiftPayday(ui.payday, -1); render(); break;
     case 'qNext': ui.payday = shiftPayday(ui.payday, 1); render(); break;
     case 'qHoy': ui.payday = nextPayday(todayISO()); render(); break;
