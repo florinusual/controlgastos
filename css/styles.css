@@ -257,3 +257,6 @@ input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-da
 .pend-t small { display: block; color: #B9C4BC; font-size: 11.5px; }
 .pend-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
 .pend-r .num { font-size: 14px; }
+
+/* tarjeta sin adeudo */
+.tc--cero { border: 2px solid var(--grass); }

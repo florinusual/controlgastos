@@ -220,13 +220,14 @@ function tarjetaTC({ card, r }) {
   const a = attrs(card, r);
   const compras = comprasDelCorte(card, r);
   const id = esc(card.id);
+  const cero = r.deudaFinal <= 0 ? ' tc--cero' : ''; // sin adeudo: borde verde
   const btnC = (c) => `<button type="button" class="fold" data-act="fold" data-card="${id}" aria-expanded="${!c}" aria-label="${c ? 'Mostrar' : 'Contraer'} ${esc(card.nombre)}">${c ? '+' : '−'}</button>`;
   if (ui.contraidas.has(card.id)) {
-    return `<article class="card tc tc--min"><div class="row">${btnC(true)}
+    return `<article class="card tc tc--min${cero}"><div class="row">${btnC(true)}
       <span class="plastic sm" style="background:${esc(card.color || COLORES[0])}"></span>
       <button class="tc-name" style="flex:1;text-align:left" data-act="fold" data-card="${id}">${esc(card.nombre)}</button></div></article>`;
   }
-  return `<article class="card tc">
+  return `<article class="card tc${cero}">
     <div class="row spread" style="align-items:flex-start;flex-wrap:wrap">
       <div class="row" style="flex:1 1 240px;align-items:center">${btnC(false)}<button class="tc-head" data-act="editCard" data-card="${esc(card.id)}" aria-label="Editar ${esc(card.nombre)}">
         <span class="plastic" style="background:${esc(card.color || COLORES[0])}"></span>
