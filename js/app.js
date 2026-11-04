@@ -193,7 +193,7 @@ function tarjetaTC({ card, r }) {
   return `<article class="card tc">
     <div class="row spread" style="align-items:flex-start;flex-wrap:wrap">
       <button class="tc-head" data-act="editCard" data-card="${esc(card.id)}" aria-label="Editar ${esc(card.nombre)}">
-        <span class="plastic" style="background:${esc(card.color || COLORES[0])}">${card.terminacion ? '••' + esc(card.terminacion) : ''}</span>
+        <span class="plastic" style="background:${esc(card.color || COLORES[0])}"></span>
         <span style="min-width:0"><span class="tc-name">${esc(card.nombre)}</span><br><span class="tc-dates">Corte ${esc(fechaCorta(r.corte))} → límite ${esc(fechaCorta(r.limite))}</span></span>
       </button>${estadoTag(r.estado)}
     </div>
@@ -338,11 +338,11 @@ function sheetCard() {
     <div class="row spread"><h2 style="margin:0">${c.id ? 'Editar tarjeta' : 'Nueva tarjeta'}</h2><button type="button" class="x" data-act="closeSheet" aria-label="Cerrar">×</button></div>
     <label class="field" for="f-nombre"><span class="label">Nombre</span><input id="f-nombre" data-cf="nombre" value="${esc(c.nombre)}" placeholder="Ej. BBVA Oro" maxlength="40"></label>
     <div class="grid2">
-      <label class="field" for="f-term"><span class="label">Últimos 4 dígitos</span><input id="f-term" data-cf="terminacion" inputmode="numeric" maxlength="4" value="${esc(c.terminacion)}" placeholder="Opcional"></label>
-      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label>
       <label class="field" for="f-corte"><span class="label">Día de corte</span><input id="f-corte" data-cf="diaCorte" type="number" min="1" max="31" value="${esc(c.diaCorte)}"></label>
       <label class="field" for="f-pago"><span class="label">Día límite de pago</span><input id="f-pago" data-cf="diaPago" type="number" min="1" max="31" value="${esc(c.diaPago)}"></label></div>
-    <label class="field" for="f-mes"><span class="label">Mes del primer corte que registras</span><input id="f-mes" data-cf="mesInicial" type="month" value="${esc(c.mesInicial)}"></label>
+    <div class="grid2">
+      <label class="field" for="f-mes"><span class="label">Mes del primer corte</span><input id="f-mes" data-cf="mesInicial" type="month" value="${esc(c.mesInicial)}"></label>
+      <label class="field" for="f-deuda"><span class="label">Deuda en ese corte</span><input id="f-deuda" data-cf="deudaInicial" inputmode="decimal" value="${esc(c.deudaInicial)}" placeholder="0.00"></label></div>
     <div class="field"><span class="label">Color</span><div class="swatches">${COLORES.map((col) => `<button type="button" class="sw" style="background:${col}" data-act="color" data-c="${col}" aria-pressed="${c.color === col}" aria-label="Color ${col}"></button>`).join('')}</div></div>
     <p class="hint" id="cardPreview">${esc(previewCard(c))}</p>
     <p class="msg" id="cardMsg" role="alert" style="color:var(--bad)"></p>
@@ -374,9 +374,9 @@ function sheetHist(id) {
 function ejemplo() {
   const actual = todayISO().slice(0, 7), prev = addMonths(actual, -1);
   const c = {
-    ej1: { id: 'ej1', nombre: 'Ejemplo Oro', terminacion: '4821', diaCorte: 3, diaPago: 23, deudaInicial: 18450, mesInicial: prev, color: COLORES[0] },
-    ej2: { id: 'ej2', nombre: 'Ejemplo Negra', terminacion: '1077', diaCorte: 10, diaPago: 30, deudaInicial: 9200, mesInicial: prev, color: COLORES[1] },
-    ej3: { id: 'ej3', nombre: 'Ejemplo Departamental', terminacion: '', diaCorte: 22, diaPago: 12, deudaInicial: 4300, mesInicial: prev, color: COLORES[2] },
+    ej1: { id: 'ej1', nombre: 'Ejemplo Oro', diaCorte: 3, diaPago: 23, deudaInicial: 18450, mesInicial: prev, color: COLORES[0] },
+    ej2: { id: 'ej2', nombre: 'Ejemplo Negra', diaCorte: 10, diaPago: 30, deudaInicial: 9200, mesInicial: prev, color: COLORES[1] },
+    ej3: { id: 'ej3', nombre: 'Ejemplo Departamental', diaCorte: 22, diaPago: 12, deudaInicial: 4300, mesInicial: prev, color: COLORES[2] },
   };
   const lim = (id, m) => cycleDates(c[id], m).limite;
   const p = (id, mes, x) => ({ [`${id}_${mes}`]: { id: `${id}_${mes}`, cardId: id, mes, ...x } });
@@ -473,7 +473,7 @@ document.addEventListener('submit', async (ev) => {
 async function guardarCard() {
   const c = ui.cardEdit, msg = $('#cardMsg');
   const card = {
-    nombre: String(c.nombre).trim(), terminacion: String(c.terminacion || '').trim(), diaCorte: Number(c.diaCorte), diaPago: Number(c.diaPago),
+    nombre: String(c.nombre).trim(), diaCorte: Number(c.diaCorte), diaPago: Number(c.diaPago),
     deudaInicial: round2(Number.isFinite(parseMonto(c.deudaInicial)) ? parseMonto(c.deudaInicial) : 0), mesInicial: c.mesInicial, color: c.color || COLORES[0],
   };
   if (!card.nombre) { msg.textContent = 'Escribe el nombre de la tarjeta.'; return; }
@@ -518,7 +518,7 @@ document.addEventListener('click', async (ev) => {
     case 'qNext': ui.payday = shiftPayday(ui.payday, 1); render(); break;
     case 'qHoy': ui.payday = nextPayday(todayISO()); render(); break;
     case 'addCard':
-      ui.cardEdit = { id: null, nuevoId: 'tc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nombre: '', terminacion: '', diaCorte: '', diaPago: '', deudaInicial: '', mesInicial: ui.mes, color: COLORES[cards().length % COLORES.length] };
+      ui.cardEdit = { id: null, nuevoId: 'tc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nombre: '', diaCorte: '', diaPago: '', deudaInicial: '', mesInicial: ui.mes, color: COLORES[cards().length % COLORES.length] };
       ui.sheet = 'card'; ui.armed = null; renderSheet(); $('#f-nombre')?.focus(); break;
     case 'editCard': ui.cardEdit = { ...D.cards[el.dataset.card] }; ui.sheet = 'card'; ui.armed = null; renderSheet(); break;
     case 'color': ui.cardEdit.color = el.dataset.c; renderSheet(); break;
